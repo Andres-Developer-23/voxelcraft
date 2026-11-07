@@ -1,7 +1,8 @@
-// Arranque del juego (fase 1: mundo + cámara de vista general).
+// Arranque del juego: mundo, jugador en primera persona y render.
 import * as THREE from "three";
 import { Mundo } from "./world.js";
 import { crearEscena, crearRenderer, reconstruirMundo } from "./render.js";
+import { crearJugador } from "./player.js";
 
 const canvas = document.getElementById("game");
 const renderer = crearRenderer(canvas);
@@ -16,8 +17,22 @@ const camara = new THREE.PerspectiveCamera(
   0.1,
   300,
 );
-camara.position.set(30, 28, 30);
-camara.lookAt(0, 6, 0);
+
+function alCambiar() {
+  reconstruirMundo(mundo, grupo);
+}
+
+const jugador = crearJugador(camara, canvas, mundo, alCambiar);
+
+// HUD: bloque elegido y aviso de captura del ratón.
+const etiquetaBloque = document.getElementById("bloque-actual");
+const aviso = document.getElementById("aviso");
+setInterval(() => {
+  etiquetaBloque.textContent = `Bloque: ${jugador.estado.tipoBloque}`;
+  aviso.textContent = jugador.estado.bloqueado
+    ? "Clic en la pantalla para empezar"
+    : "Pulsa Esc para liberar el ratón";
+}, 200);
 
 function redimensionar() {
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -27,6 +42,11 @@ function redimensionar() {
 window.addEventListener("resize", redimensionar);
 redimensionar();
 
+let ultimo = performance.now();
 renderer.setAnimationLoop(() => {
+  const ahora = performance.now();
+  const dt = Math.min((ahora - ultimo) / 1000, 0.05);
+  ultimo = ahora;
+  jugador.actualizar(dt);
   renderer.render(escena, camara);
 });
