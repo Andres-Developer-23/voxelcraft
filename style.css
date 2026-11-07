@@ -40,3 +40,154 @@ body {
 #aviso {
   color: #ffe08a;
 }
+
+/* --- Panel del editor --------------------------------------------- */
+
+#panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  max-width: 92vw;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: #14181f;
+  color: #e6edf3;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+}
+
+#panel h1 {
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: #7ee787;
+}
+
+#panel h2 {
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+#mision {
+  background: #1c2431;
+  border: 1px solid #2d3846;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#mision code {
+  background: #0d1117;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+#codigo {
+  flex: 1;
+  min-height: 160px;
+  resize: none;
+  background: #0d1117;
+  color: #e6edf3;
+  border: 1px solid #2d3846;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 4;
+}
+
+#codigo:focus {
+  outline: 2px solid #7ee787;
+}
+
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.acciones button {
+  background: #238636;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.acciones button#reiniciar {
+  background: #21262d;
+  border: 1px solid #30363d;
+}
+
+.acciones button:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.acciones button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+#estado-mision {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+#estado-mision.pendiente {
+  background: #3a2f11;
+  color: #e3b341;
+}
+
+#estado-mision.completada {
+  background: #12261a;
+  color: #7ee787;
+}
+
+#consola {
+  height: 150px;
+  overflow-y: auto;
+  background: #0d1117;
+  border: 1px solid #2d3846;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#consola p {
+  margin: 0;
+}
+
+#consola .error {
+  color: #ff7b72;
+}
+
+#consola .ok {
+  color: #7ee787;
+}
+
+#consola .fallo {
+  color: #ffa657;
+}
+
+#consola .nota {
+  color: #8b949e;
+}
+
+/* El HUD se queda a la izquierda del panel. */
+#hud {
+  right: 412px;
+  left: auto;
+}
