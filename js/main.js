@@ -1,8 +1,10 @@
-// Arranque del juego: mundo, jugador en primera persona y render.
+// Arranque del juego: mundo, jugador, editor y render.
 import * as THREE from "three";
 import { Mundo } from "./world.js";
 import { crearEscena, crearRenderer, reconstruirMundo } from "./render.js";
 import { crearJugador } from "./player.js";
+import { crearPuente } from "./bridge.js";
+import { crearEditor } from "./editor.js";
 
 const canvas = document.getElementById("game");
 const renderer = crearRenderer(canvas);
@@ -24,14 +26,44 @@ function alCambiar() {
 
 const jugador = crearJugador(camara, canvas, mundo, alCambiar);
 
+// Python se carga solo la primera vez que se pulsa Ejecutar.
+let puentePendiente = null;
+function obtenerPuente() {
+  if (!puentePendiente) puentePendiente = crearPuente({ mundo, alCambiar });
+  return puentePendiente;
+}
+
+let cargandoPython = false;
+const editor = crearEditor({
+  async correr(codigo) {
+    cargandoPython = true;
+    try {
+      const puente = await obtenerPuente();
+      return await puente.ejecutar(codigo);
+    } finally {
+      cargandoPython = false;
+    }
+  },
+});
+
+// Código de arranque del editor (o el último guardado por el alumno).
+editor.cargar(
+  localStorage.getItem("voxelcraft:codigo") ??
+    ['# Escribe aquí tu Python', 'print("¡Hola, mundo!")'].join("\n"),
+);
+
 // HUD: bloque elegido y aviso de captura del ratón.
 const etiquetaBloque = document.getElementById("bloque-actual");
 const aviso = document.getElementById("aviso");
 setInterval(() => {
   etiquetaBloque.textContent = `Bloque: ${jugador.estado.tipoBloque}`;
-  aviso.textContent = jugador.estado.bloqueado
-    ? "Clic en la pantalla para empezar"
-    : "Pulsa Esc para liberar el ratón";
+  if (cargandoPython) {
+    aviso.textContent = "Cargando Python… (la primera vez tarda)";
+  } else {
+    aviso.textContent = jugador.estado.bloqueado
+      ? "Clic en la pantalla para empezar"
+      : "Pulsa Esc para liberar el ratón";
+  }
 }, 200);
 
 function redimensionar() {

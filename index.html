@@ -22,6 +22,25 @@
       <p id="bloque-actual">Bloque: ladrillo</p>
       <p id="aviso">Clic en la pantalla para empezar</p>
     </div>
+
+    <aside id="panel">
+      <h1>VoxelCraft</h1>
+      <section id="mision">
+        <h2 id="mision-titulo">Editor de Python</h2>
+        <p id="mision-desc">Escribe código Python y pulsa Ejecutar. La API
+        disponible: <code>colocar_bloque</code>, <code>destruir_bloque</code>,
+        <code>obtener_bloque</code>, <code>altura_terreno</code>,
+        <code>distancia</code> y <code>print</code>.</p>
+      </section>
+      <textarea id="codigo" spellcheck="false" autocomplete="off"></textarea>
+      <div class="acciones">
+        <button id="ejecutar">▶ Ejecutar</button>
+        <button id="reiniciar">↺ Reiniciar</button>
+        <span id="estado-mision" class="pendiente">Misión: pendiente</span>
+      </div>
+      <pre id="consola"></pre>
+    </aside>
+
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
