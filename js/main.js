@@ -1,10 +1,11 @@
-// Arranque del juego: mundo, jugador, editor y render.
+// Arranque del juego: mundo, jugador, editor y misiones.
 import * as THREE from "three";
 import { Mundo } from "./world.js";
 import { crearEscena, crearRenderer, reconstruirMundo } from "./render.js";
 import { crearJugador } from "./player.js";
 import { crearPuente } from "./bridge.js";
 import { crearEditor } from "./editor.js";
+import { MISIONES, snapshotAlturas } from "./lessons.js";
 
 const canvas = document.getElementById("game");
 const renderer = crearRenderer(canvas);
@@ -39,18 +40,53 @@ const editor = crearEditor({
     cargandoPython = true;
     try {
       const puente = await obtenerPuente();
-      return await puente.ejecutar(codigo);
+      const r = await puente.ejecutar(codigo);
+      // Solo se verifica si el código corrió sin errores.
+      if (r.ok) r.mision = MISIONES[indiceMision].verificar(mundo, base);
+      return r;
     } finally {
       cargandoPython = false;
     }
   },
+  alCompletar() {
+    // En la última misión no hay a dónde avanzar.
+    if (indiceMision >= MISIONES.length - 1) {
+      document.getElementById("siguiente").hidden = true;
+    }
+  },
+  alSiguiente() {
+    if (indiceMision < MISIONES.length - 1) cargarMision(indiceMision + 1);
+  },
 });
 
-// Código de arranque del editor (o el último guardado por el alumno).
-editor.cargar(
-  localStorage.getItem("voxelcraft:codigo") ??
-    ['# Escribe aquí tu Python', 'print("¡Hola, mundo!")'].join("\n"),
-);
+// Las misiones se verifican contra el terreno original, no contra el estado
+// actual: así re-ejecutar una solución ya correcta sigue pasando.
+const base = snapshotAlturas(new Mundo(42));
+
+let indiceMision = Number(localStorage.getItem("voxelcraft:mision") ?? 0);
+if (!Number.isInteger(indiceMision) || indiceMision < 0 || indiceMision >= MISIONES.length) {
+  indiceMision = 0;
+}
+
+async function cargarMision(i) {
+  indiceMision = i;
+  localStorage.setItem("voxelcraft:mision", String(i));
+  const m = MISIONES[i];
+  document.getElementById("mision-titulo").textContent = m.titulo;
+  document.getElementById("mision-desc").textContent = m.desc;
+  document.getElementById("mision-progreso").textContent = `${i + 1} / ${MISIONES.length}`;
+  let codigo;
+  try {
+    const resp = await fetch(m.archivo);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    codigo = await resp.text();
+  } catch (e) {
+    codigo = `# No se pudo cargar ${m.archivo}\n# (${e.message})\n# Ejecuta el juego con un servidor web:\n#   python3 -m http.server 8000\n`;
+  }
+  editor.cargar(codigo, m.id);
+}
+
+cargarMision(indiceMision);
 
 // HUD: bloque elegido y aviso de captura del ratón.
 const etiquetaBloque = document.getElementById("bloque-actual");

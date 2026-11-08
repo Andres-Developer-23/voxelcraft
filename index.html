@@ -26,16 +26,17 @@
     <aside id="panel">
       <h1>VoxelCraft</h1>
       <section id="mision">
-        <h2 id="mision-titulo">Editor de Python</h2>
-        <p id="mision-desc">Escribe código Python y pulsa Ejecutar. La API
-        disponible: <code>colocar_bloque</code>, <code>destruir_bloque</code>,
-        <code>obtener_bloque</code>, <code>altura_terreno</code>,
-        <code>distancia</code> y <code>print</code>.</p>
+        <div class="mision-cabecera">
+          <h2 id="mision-titulo">Editor de Python</h2>
+          <span id="mision-progreso"></span>
+        </div>
+        <p id="mision-desc"></p>
       </section>
       <textarea id="codigo" spellcheck="false" autocomplete="off"></textarea>
       <div class="acciones">
         <button id="ejecutar">▶ Ejecutar</button>
         <button id="reiniciar">↺ Reiniciar</button>
+        <button id="siguiente" hidden>Siguiente ▶</button>
         <span id="estado-mision" class="pendiente">Misión: pendiente</span>
       </div>
       <pre id="consola"></pre>
