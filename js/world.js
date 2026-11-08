@@ -46,10 +46,12 @@ function alturaGenerada(x, z, seed) {
 }
 
 export class Mundo {
-  constructor(seed = 42) {
+  // Si se pasa un mapa de bloques (snapshot), se usa tal cual sin generar
+  // terreno: sirve para reconstruir el mundo dentro del worker de Python.
+  constructor(seed = 42, bloques = null) {
     this.seed = seed;
-    this.bloques = new Map(); // "x,y,z" -> tipo
-    this.generarTerreno();
+    this.bloques = bloques ?? new Map(); // "x,y,z" -> tipo
+    if (!bloques) this.generarTerreno();
   }
 
   clave(x, y, z) {

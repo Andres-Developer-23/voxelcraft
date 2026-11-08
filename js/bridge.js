@@ -1,23 +1,102 @@
-// Puente Python <-> juego: carga Pyodide, expone la API de bloques y
-// ejecuta el código del alumno capturando salida y errores.
-const VERSION = "0.26.4";
-const BASE = `https://cdn.jsdelivr.net/pyodide/v${VERSION}/full/`;
+// Puente Python <-> juego: ejecuta el código del alumno en un Web Worker
+// con Pyodide. Si el código no termina (bucle infinito), se corta a los 15 s
+// y se reinicia el worker: la pestaña nunca se congela.
+const TIMEOUT_MS = 15000;
 
-let pyodideListo = null;
+export function crearPuente({ mundo }) {
+  let worker = null;
+  let listoP = null;
+  let resolverListo = null;
+  let rechazarListo = null;
+  let temporizador = null;
+  let pendiente = null; // { id, resolver } de la ejecución en curso
+  let eid = 0;
 
-function cargarPyodide() {
-  if (pyodideListo) return pyodideListo;
-  pyodideListo = (async () => {
-    const script = document.createElement("script");
-    script.src = `${BASE}pyodide.js`;
-    document.head.appendChild(script);
-    await new Promise((ok, mal) => {
-      script.onload = ok;
-      script.onerror = () => mal(new Error("No se pudo descargar Pyodide (¿sin internet?)"));
+  function rearmar() {
+    // El reloj se reinicia con cada mensaje del worker: un script que
+    // trabaja (recibe respuestas) no se corta; uno que no toca nada, sí.
+    if (!pendiente) return;
+    clearTimeout(temporizador);
+    temporizador = setTimeout(cortar, TIMEOUT_MS);
+  }
+
+  function cortar() {
+    worker?.terminate();
+    worker = null;
+    listoP = null;
+    const p = pendiente;
+    pendiente = null;
+    clearTimeout(temporizador);
+    p?.resolver({
+      ok: false,
+      salida: "",
+      error: "Se acabó el tiempo (15 s). ¿Bucle infinito? Python se ha reiniciado.",
+      cambios: [],
     });
-    return await loadPyodide({ indexURL: BASE });
-  })();
-  return pyodideListo;
+  }
+
+  function destruirWorker() {
+    worker?.terminate();
+    worker = null;
+    listoP = null;
+  }
+
+  function obtenerWorker() {
+    if (worker) return worker;
+    worker = new Worker(new URL("./pythonWorker.js", import.meta.url), { type: "module" });
+    listoP = new Promise((ok, mal) => {
+      resolverListo = ok;
+      rechazarListo = mal;
+    });
+    worker.onmessage = (ev) => {
+      const msg = ev.data;
+      if (msg.t === "cargando") return;
+      rearmar();
+      if (msg.t === "listo") {
+        resolverListo?.();
+        resolverListo = rechazarListo = null;
+      } else if (msg.t === "errorPy") {
+        rechazarListo?.(new Error(msg.mensaje));
+        resolverListo = rechazarListo = null;
+      } else if (msg.t === "resultado" && pendiente?.id === msg.id) {
+        clearTimeout(temporizador);
+        const p = pendiente;
+        pendiente = null;
+        p.resolver({
+          ok: msg.ok,
+          salida: msg.salida,
+          error: msg.error ? traducirError(msg.error) : null,
+          cambios: msg.cambios,
+        });
+      }
+    };
+    worker.onerror = (ev) => {
+      const texto = ev.message || "No se pudo cargar Pyodide (¿sin internet?)";
+      destruirWorker();
+      rechazarListo?.(new Error(texto));
+      resolverListo = rechazarListo = null;
+      const p = pendiente;
+      pendiente = null;
+      clearTimeout(temporizador);
+      p?.resolver({ ok: false, salida: "", error: texto, cambios: [] });
+    };
+    return worker;
+  }
+
+  async function ejecutar(codigo) {
+    const w = obtenerWorker();
+    await listoP; // si falla la carga, lanza y el editor lo muestra
+    if (pendiente) throw new Error("Ya hay un código en ejecución");
+    const id = ++eid;
+    const r = new Promise((resolver) => {
+      pendiente = { id, resolver };
+    });
+    rearmar();
+    w.postMessage({ t: "ejecutar", id, codigo, bloques: new Map(mundo.bloques) });
+    return r;
+  }
+
+  return { ejecutar, destruir: destruirWorker };
 }
 
 // Traduce los errores típicos de quien empieza a programar.
@@ -54,63 +133,4 @@ function traducirError(mensaje) {
   }
   // Sin traducción: la última línea (o el mensaje entero si está vacío).
   return ultima || texto;
-}
-
-export async function crearPuente({ mundo, alCambiar }) {
-  const pyodide = await cargarPyodide();
-
-  // --- API expuesta a Python -------------------------------------------
-  const api = {
-    colocar_bloque(x, y, z, tipo) {
-      mundo.colocar(Math.trunc(Number(x)), Math.trunc(Number(y)), Math.trunc(Number(z)), String(tipo));
-      alCambiar();
-    },
-    destruir_bloque(x, y, z) {
-      mundo.destruir(Math.trunc(Number(x)), Math.trunc(Number(y)), Math.trunc(Number(z)));
-      alCambiar();
-    },
-    obtener_bloque(x, y, z) {
-      return mundo.obtener(Math.trunc(Number(x)), Math.trunc(Number(y)), Math.trunc(Number(z)));
-    },
-    altura_terreno(x, z) {
-      return mundo.alturaTerreno(Math.trunc(Number(x)), Math.trunc(Number(z)));
-    },
-  };
-  for (const [nombre, fn] of Object.entries(api)) pyodide.globals.set(nombre, fn);
-
-  // Utilidades puras de Python (matemática, sin pasar por JS).
-  pyodide.runPython(`
-import sys, io, math
-
-def distancia(a, b):
-    """Distancia entre dos puntos (x, y, z)."""
-    return math.sqrt(sum((p - q) ** 2 for p, q in zip(a, b)))
-
-sys.stdout = io.StringIO()
-sys.stderr = io.StringIO()
-`);
-
-  // --- Ejecución --------------------------------------------------------
-  function vaciarSalida() {
-    pyodide.runPython("sys.stdout.seek(0); sys.stdout.truncate(0); sys.stderr.seek(0); sys.stderr.truncate(0)");
-  }
-
-  function leerSalida() {
-    return String(pyodide.runPython("sys.stdout.getvalue() + sys.stderr.getvalue()"));
-  }
-
-  async function ejecutar(codigo) {
-    vaciarSalida();
-    try {
-      pyodide.runPython(codigo);
-      return { ok: true, salida: leerSalida(), error: null };
-    } catch (e) {
-      // Al redirigir sys.stderr, Pyodide puede dejar e.message vacío y
-      // mandar el traceback a la salida: se usa como respaldo.
-      const texto = String(e.message ?? "").trim() || leerSalida();
-      return { ok: false, salida: "", error: traducirError(texto) };
-    }
-  }
-
-  return { ejecutar };
 }
