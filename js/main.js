@@ -30,8 +30,19 @@ const jugador = crearJugador(camara, canvas, mundo, alCambiar);
 // Python se carga solo la primera vez que se pulsa Ejecutar.
 let puentePendiente = null;
 function obtenerPuente() {
-  if (!puentePendiente) puentePendiente = crearPuente({ mundo, alCambiar });
+  if (!puentePendiente) puentePendiente = crearPuente({ mundo });
   return puentePendiente;
+}
+
+// Aplica los cambios que hizo la API de bloques (va en el worker) al
+// mundo real, de una sola vez al terminar la ejecución.
+function aplicarCambios(cambios) {
+  if (!cambios?.length) return;
+  for (const [x, y, z, tipo] of cambios) {
+    if (tipo === null) mundo.destruir(x, y, z);
+    else mundo.colocar(x, y, z, tipo);
+  }
+  alCambiar();
 }
 
 let cargandoPython = false;
@@ -41,6 +52,7 @@ const editor = crearEditor({
     try {
       const puente = await obtenerPuente();
       const r = await puente.ejecutar(codigo);
+      aplicarCambios(r.cambios);
       // Solo se verifica si el código corrió sin errores.
       if (r.ok) r.mision = MISIONES[indiceMision].verificar(mundo, base);
       return r;
