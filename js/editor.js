@@ -81,7 +81,12 @@ export function crearEditor({ correr, alCompletar, alSiguiente }) {
 
     const lineas = [];
     if (r.salida) lineas.push({ texto: r.salida.replace(/\n$/, "") });
-    if (r.error) lineas.push({ texto: r.error, clase: "error" });
+    if (r.error) {
+      lineas.push({ texto: r.error, clase: "error" });
+      // Un error deja la misión pendiente aunque antes hubiera pasado.
+      marcarEstado("Misión: pendiente", "pendiente");
+      btnSiguiente.hidden = true;
+    }
     if (r.mision) {
       lineas.push({
         texto: r.mision.completada ? `✔ ${r.mision.mensaje}` : `✘ ${r.mision.mensaje}`,

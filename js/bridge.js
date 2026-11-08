@@ -22,8 +22,7 @@ function cargarPyodide() {
 
 // Traduce los errores típicos de quien empieza a programar.
 const TRADUCCIONES = [
-  [/^NameError: name '(.+?)' is not defined$/, "No encuentro '$1'. ¿Definiste la variable o función antes de usarla?"],
-  [/^NameError: name '(.+?)' is not defined on the module level$/, "No encuentro '$1'."],
+  [/^NameError: name '(.+?)' is not defined/, "No encuentro '$1'. ¿Definiste la variable o función antes de usarla?"],
   [/^SyntaxError/, "Error de sintaxis: revisa paréntesis, dos puntos (:), comillas y palabras reservadas."],
   [/^IndentationError/, "Error de indentación: usa 4 espacios al principio de cada línea del bloque (no mezcles con tabuladores)."],
   [/^TabError/, "Error de indentación: no mezcles tabuladores y espacios; usa solo 4 espacios."],
@@ -37,13 +36,24 @@ const TRADUCCIONES = [
 ];
 
 function traducirError(mensaje) {
-  const lineas = String(mensaje).trim().split("\n");
+  const texto = String(mensaje);
+  const lineas = texto.trim().split("\n");
   const ultima = lineas[lineas.length - 1] ?? "";
-  for (const [patron, texto] of TRADUCCIONES) {
-    if (patron.test(ultima)) return texto;
+  // Python a veces añade "Did you mean: 'x'?" al final: se conserva como pista.
+  const sugerencia = ultima.match(/Did you mean: '(.+?)'\?/)?.[1];
+  // Línea donde falló, para poder señalarla al alumno.
+  const linea = texto.match(/File "<exec>", line (\d+)/)?.[1];
+  for (const [patron, salida] of TRADUCCIONES) {
+    const m = ultima.match(patron);
+    if (m) {
+      const base = salida.replace(/\$1/g, m[1] ?? "");
+      const pista = sugerencia ? ` (¿quisiste decir '${sugerencia}'?)` : "";
+      const donde = linea ? ` [línea ${linea}]` : "";
+      return `${base}${pista}${donde}`;
+    }
   }
-  // Sin traducción: devuelve la última línea tal cual (o el mensaje entero).
-  return ultima || String(mensaje);
+  // Sin traducción: la última línea (o el mensaje entero si está vacío).
+  return ultima || texto;
 }
 
 export async function crearPuente({ mundo, alCambiar }) {
@@ -95,7 +105,10 @@ sys.stderr = io.StringIO()
       pyodide.runPython(codigo);
       return { ok: true, salida: leerSalida(), error: null };
     } catch (e) {
-      return { ok: false, salida: leerSalida(), error: traducirError(e.message) };
+      // Al redirigir sys.stderr, Pyodide puede dejar e.message vacío y
+      // mandar el traceback a la salida: se usa como respaldo.
+      const texto = String(e.message ?? "").trim() || leerSalida();
+      return { ok: false, salida: "", error: traducirError(texto) };
     }
   }
 

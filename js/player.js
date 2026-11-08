@@ -107,46 +107,50 @@ export function crearJugador(camara, canvas, mundo, alCambiar) {
   }
 
   function actualizar(dt) {
-    if (estado.bloqueado) return;
-
-    // Dirección en el plano XZ según la mirada.
-    const adelante = new THREE.Vector3(-Math.sin(estado.yaw), 0, -Math.cos(estado.yaw));
-    const derecha = new THREE.Vector3(-adelante.z, 0, adelante.x);
-    const movimiento = new THREE.Vector3();
-    if (teclas.has("KeyW")) movimiento.add(adelante);
-    if (teclas.has("KeyS")) movimiento.sub(adelante);
-    if (teclas.has("KeyD")) movimiento.add(derecha);
-    if (teclas.has("KeyA")) movimiento.sub(derecha);
-    if (movimiento.lengthSq() > 0) movimiento.normalize().multiplyScalar(VELOCIDAD);
-
-    estado.vel.x = movimiento.x;
-    estado.vel.z = movimiento.z;
-    estado.vel.y += GRAVEDAD * dt;
-    if (teclas.has("Space") && estado.enSuelo) {
-      estado.vel.y = FUERZA_SALTO;
-      estado.enSuelo = false;
-    }
-
+    // La cámara se actualiza siempre (también con el puntero sin capturar),
+    // pero la física solo corre cuando se está jugando.
+    const jugando = !estado.bloqueado;
     const p = estado.pos;
-    // Eje X.
-    let nx = p.x + estado.vel.x * dt;
-    if (!choca(nx, p.y, p.z)) p.x = nx;
-    // Eje Z.
-    let nz = p.z + estado.vel.z * dt;
-    if (!choca(p.x, p.y, nz)) p.z = nz;
-    // Eje Y.
-    let ny = p.y + estado.vel.y * dt;
-    if (!choca(p.x, ny, p.z)) {
-      p.y = ny;
-      estado.enSuelo = false;
-    } else {
-      if (estado.vel.y < 0) estado.enSuelo = true;
-      estado.vel.y = 0;
-    }
-    // Red de seguridad: si cae al vacío, reaparece sobre el terreno.
-    if (p.y < -30) {
-      p.set(0.5, mundo.alturaTerreno(0, 0) + 3, 0.5);
-      estado.vel.set(0, 0, 0);
+
+    if (jugando) {
+      // Dirección en el plano XZ según la mirada.
+      const adelante = new THREE.Vector3(-Math.sin(estado.yaw), 0, -Math.cos(estado.yaw));
+      const derecha = new THREE.Vector3(-adelante.z, 0, adelante.x);
+      const movimiento = new THREE.Vector3();
+      if (teclas.has("KeyW")) movimiento.add(adelante);
+      if (teclas.has("KeyS")) movimiento.sub(adelante);
+      if (teclas.has("KeyD")) movimiento.add(derecha);
+      if (teclas.has("KeyA")) movimiento.sub(derecha);
+      if (movimiento.lengthSq() > 0) movimiento.normalize().multiplyScalar(VELOCIDAD);
+
+      estado.vel.x = movimiento.x;
+      estado.vel.z = movimiento.z;
+      estado.vel.y += GRAVEDAD * dt;
+      if (teclas.has("Space") && estado.enSuelo) {
+        estado.vel.y = FUERZA_SALTO;
+        estado.enSuelo = false;
+      }
+
+      // Eje X.
+      const nx = p.x + estado.vel.x * dt;
+      if (!choca(nx, p.y, p.z)) p.x = nx;
+      // Eje Z.
+      const nz = p.z + estado.vel.z * dt;
+      if (!choca(p.x, p.y, nz)) p.z = nz;
+      // Eje Y.
+      const ny = p.y + estado.vel.y * dt;
+      if (!choca(p.x, ny, p.z)) {
+        p.y = ny;
+        estado.enSuelo = false;
+      } else {
+        if (estado.vel.y < 0) estado.enSuelo = true;
+        estado.vel.y = 0;
+      }
+      // Red de seguridad: si cae al vacío, reaparece sobre el terreno.
+      if (p.y < -30) {
+        p.set(0.5, mundo.alturaTerreno(0, 0) + 3, 0.5);
+        estado.vel.set(0, 0, 0);
+      }
     }
 
     camara.position.set(p.x, p.y + ALTURA_JUGADOR - 0.15, p.z);
