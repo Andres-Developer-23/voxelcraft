@@ -2,17 +2,20 @@
 // Guarda el código antes de ejecutar para no perder nada si Python se cuelga
 // (shortcut: no hay límite de tiempo de ejecución; un bucle infinito congela
 // la pestaña. Subirlo a un Web Worker si hace falta).
-const CLAVE_GUARDADO = "voxelcraft:codigo";
-
-export function crearEditor({ correr }) {
+export function crearEditor({ correr, alCompletar, alSiguiente }) {
   const textarea = document.getElementById("codigo");
   const consola = document.getElementById("consola");
   const btnEjecutar = document.getElementById("ejecutar");
   const btnReiniciar = document.getElementById("reiniciar");
+  const btnSiguiente = document.getElementById("siguiente");
   const estadoMision = document.getElementById("estado-mision");
 
   let codigoInicial = "";
+  let claveActual = "default";
   let ejecutando = false;
+
+  const guardar = () =>
+    localStorage.setItem(`voxelcraft:codigo:${claveActual}`, textarea.value);
 
   function pintar(lineas) {
     consola.replaceChildren(
@@ -26,13 +29,24 @@ export function crearEditor({ correr }) {
     consola.scrollTop = consola.scrollHeight;
   }
 
-  function cargar(codigo) {
+  function cargar(codigo, clave = "default") {
+    claveActual = clave;
     codigoInicial = codigo;
-    textarea.value = codigo;
-    localStorage.setItem(CLAVE_GUARDADO, codigo);
+    const guardado = localStorage.getItem(`voxelcraft:codigo:${clave}`);
+    textarea.value = guardado ?? codigo;
+    btnSiguiente.hidden = true;
     pintar([{ texto: "Listo. Pulsa Ejecutar para correr tu código.", clase: "nota" }]);
     estadoMision.textContent = "Misión: pendiente";
     estadoMision.className = "pendiente";
+  }
+
+  function reiniciar() {
+    localStorage.removeItem(`voxelcraft:codigo:${claveActual}`);
+    textarea.value = codigoInicial;
+    pintar([{ texto: "Código original restaurado.", clase: "nota" }]);
+    estadoMision.textContent = "Misión: pendiente";
+    estadoMision.className = "pendiente";
+    btnSiguiente.hidden = true;
   }
 
   function marcarEstado(texto, clase) {
@@ -44,7 +58,7 @@ export function crearEditor({ correr }) {
     if (ejecutando) return;
     const codigo = textarea.value;
     // Se guarda antes de correr: si el código se cuelga, no se pierde nada.
-    localStorage.setItem(CLAVE_GUARDADO, codigo);
+    guardar();
     ejecutando = true;
     btnEjecutar.disabled = true;
     pintar([{ texto: "Ejecutando…", clase: "nota" }]);
@@ -77,6 +91,11 @@ export function crearEditor({ correr }) {
         r.mision.completada ? "Misión: completada" : "Misión: pendiente",
         r.mision.completada ? "completada" : "pendiente",
       );
+      if (r.mision.completada) {
+        // main.js decide si hay misión siguiente y oculta el botón si no.
+        btnSiguiente.hidden = false;
+        alCompletar?.();
+      }
     } else if (r.ok && !r.error) {
       lineas.push({ texto: "✓ Terminado sin errores", clase: "ok" });
     }
@@ -85,7 +104,8 @@ export function crearEditor({ correr }) {
   }
 
   btnEjecutar.addEventListener("click", ejecutar);
-  btnReiniciar.addEventListener("click", () => cargar(codigoInicial));
+  btnReiniciar.addEventListener("click", reiniciar);
+  btnSiguiente.addEventListener("click", () => alSiguiente?.());
   textarea.addEventListener("keydown", (e) => {
     // Ctrl/Cmd+Enter ejecuta; el tabulador mete 4 espacios (Python).
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
