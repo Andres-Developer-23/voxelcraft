@@ -4,7 +4,7 @@
   "description": "Juego tipo Minecraft en el navegador para aprender Python",
   "type": "module",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "license": "MIT"
 }
